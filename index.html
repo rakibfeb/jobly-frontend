@@ -97,26 +97,31 @@ footer a:hover{color:#7c3aed;text-decoration:underline}
 </head>
 
 <body>
-
 <!-- AUTH -->
 <div id="authBox" style="height:100vh;display:flex;align-items:center;justify-content:center">
   <div class="auth-card">
     <h2 id="authTitle">Login</h2>
+
     <div class="input-group" id="nameGroup" style="display:none">
-      <input id="name" placeholder="Full Name">
+      <input id="auth_name" placeholder="Full Name">
     </div>
+
     <div class="input-group">
-      <input id="email" placeholder="Email">
+      <input id="auth_email" placeholder="Email">
     </div>
+
     <div class="input-group">
-      <input id="password" type="password" placeholder="Password">
+      <input id="auth_password" type="password" placeholder="Password">
       <span class="eye" onclick="togglePassword()">👁</span>
     </div>
+
     <div id="authError" class="auth-error" style="display:none"></div>
+
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button onclick="login()">Login</button>
-      <button onclick="signup()">Signup</button>
+      <button id="loginBtn" onclick="login()">Login</button>
+      <button id="signupBtn" onclick="signup()">Signup</button>
     </div>
+
     <p onclick="toggleAuth()" style="cursor:pointer;color:#60a5fa;margin-top:10px">Switch mode</p>
   </div>
 </div>
@@ -258,36 +263,92 @@ footer a:hover{color:#7c3aed;text-decoration:underline}
 const API="https://job-tracker-api-4clv.onrender.com";
 
 /* AUTH */
-function togglePassword(){const p=document.getElementById('password');p.type=p.type==='password'?'text':'password';}
+function togglePassword(){
+  const p=document.getElementById('auth_password');
+  p.type=p.type==='password'?'text':'password';
+}
 function showError(msg){const e=document.getElementById('authError');e.style.display=msg?'block':'none';e.textContent=msg||'';}
 
 let isLogin=true;
 function toggleAuth(){isLogin=!isLogin;authTitle.textContent=isLogin?"Login":"Signup";nameGroup.style.display=isLogin?"none":"block";showError("");}
 
 async function signup(){
-  const name=name.value.trim(), email=email.value.trim(), password=password.value;
-  if(!name||!email||!password)return showError("All fields required");
-  const res=await fetch(API+"/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password})});
-  const data=await res.json();
-  if(res.ok){alert("Signup success");toggleAuth();}else showError(data.message||"Signup failed");
+  const btn=document.getElementById("signupBtn");
+  btn.classList.add("loading");
+  btn.disabled=true;
+
+  const name=document.getElementById("auth_name").value.trim();
+  const email=document.getElementById("auth_email").value.trim();
+  const password=document.getElementById("auth_password").value;
+
+  if(!name||!email||!password){
+    showError("All fields required");
+    btn.classList.remove("loading");
+    btn.disabled=false;
+    return;
+  }
+
+  try{
+    const res=await fetch(API+"/api/auth/register",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name,email,password})
+    });
+
+    const data=await res.json();
+
+    if(res.ok){
+      alert("Signup success");
+      toggleAuth();
+    }else{
+      showError(data.message||"Signup failed");
+    }
+  }catch(e){
+    showError("Server not reachable");
+  }
+
+  btn.classList.remove("loading");
+  btn.disabled=false;
 }
 
 async function login(){
-  const res=await fetch(API+"/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email.value,password:password.value})});
-  const data=await res.json();
-  console.log("Login response:",data);
-  if(data.token){
-    localStorage.setItem("token",data.token);
-    // Store user name from response if available
-    if(data.user && data.user.name){
-      localStorage.setItem("userName",data.user.name);
-    }else if(data.name){
-      localStorage.setItem("userName",data.name);
-    }else if(data.email){
-      localStorage.setItem("userName",data.email);
+  const btn=document.getElementById("loginBtn");
+  btn.classList.add("loading");
+  btn.disabled=true;
+
+  const email=document.getElementById("auth_email").value.trim();
+  const password=document.getElementById("auth_password").value;
+
+  if(!email||!password){
+    showError("Enter email & password");
+    btn.classList.remove("loading");
+    btn.disabled=false;
+    return;
+  }
+
+  try{
+    const res=await fetch(API+"/api/auth/login",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({email,password})
+    });
+
+    const data=await res.json();
+
+    if(data.token){
+      localStorage.setItem("token",data.token);
+      localStorage.setItem("userName",data.user?.name || email);
+      startApp();
+    }else{
+      showError(data.message||"Invalid credentials");
     }
-    startApp();
-  }else showError("Invalid credentials");
+
+  }catch(e){
+    showError("Server not reachable");
+  }
+
+  btn.classList.remove("loading");
+  btn.disabled=false;
 }
 
 function getUser(){try{return JSON.parse(atob(localStorage.getItem("token").split('.')[1]));}catch{return null;}}
